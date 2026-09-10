@@ -1,0 +1,87 @@
+Windoz/DOS limitation: comports can only connect to ONE application 
+
+the DSC alarm panel 4 wire keypad bus is connected to a custom pic interface
+which provides a connectiom to COM 4 2400 baud 8n1 on an XP box
+
+This PIC interface provides the ability to simulate a RK3000 Keypad both keypad
+and display elements ... it was originally connected to a VB6 Application which
+has been updated to VB2K8 to run on XP and W7 
+
+In 2024 I converted this VB2K8 to a HA custom Card which requires an MQTT Broker 
+In order to interface this PIC interface to the HA virtual keypad I built a 
+RK3K Serial to MQTT python bridge which uses python 2.7 to connect to the MQTT
+broker running on the M73 Ubuntu box 10.213.69.17
+  pc3000 send cos -> pic -> com 4 -> mqtt rk3k/cos -> mqtt broker
+  mqtt broker -> ha virtual keypad
+  pc3000 rcvs cmd <- pic <- com 4 <- mqtt rk3k/cmd <- mqtt broker    
+  mqtt broker <- ha virtual keypad
+
+But this python connection requires shutting down the VB2K8 app to link HA to
+the PIC interface because they both can't connect to the same device on com4
+
+HOWEVER it came to my attention that com0com and hub4com, could be used to share
+this COM 4 port with both ports 
+
+its not completely intuitive basically hub4com connects to 2 virtual comports
+which are linked to com0com comport pairs and share data 
+
+pic <-> com 4 <-> com 7 <-> com  8 <-> VB app
+              <-> com 9 <-> com 10 <-> python mqtt bridge 
+
+for XP we need to install com0com v2.22 x86
+                     copy hub4com.exe to the com0com program folder
+	      
+setupc.exe install PortName=COM7 PortName=COM8 
+setupc.exe install PortName=COM9 PortMame=COM10
+
+C:\Program Files\com0com>setupc list
+       CNCA0 PortName=-
+       CNCB0 PortName=-
+       CNCA1 PortName=COM7,EmuBR=yes
+       CNCB1 PortName=COM8,EmuBR=yes
+       CNCA2 PortName=COM9,EmuBR=yes
+       CNCB2 PortName=COM10,EmuBR=yes
+
+modify rk3k.py to point to com 8 
+
+c:\rk3k>python rk3k.py
+
+modify rk3k.exe (ctrl-c) to use com 10
+
+
+C:\Program Files\com0com>dir
+ Volume in drive C is ATS 1
+ Volume Serial Number is 0673-8BEF
+
+ Directory of C:\Program Files\com0com
+
+07/09/2026  02:42 PM    <DIR>          .
+07/09/2026  02:42 PM    <DIR>          ..
+15/11/2007  05:13 AM             4,224 com0com.inf
+15/12/2009  12:20 AM            61,440 com0com.sys
+18/06/2012  03:38 AM           409,600 hub4com.exe
+31/07/2009  05:35 AM            12,794 ReadMe.txt
+15/12/2009  12:20 AM            40,960 setup.dll
+15/12/2009  12:20 AM             4,096 setupc.exe
+15/12/2009  12:21 AM           135,168 setupg.exe
+07/09/2026  11:32 AM            66,547 uninstall.exe
+               8 File(s)        734,829 bytes
+               2 Dir(s)  16,633,106,944 bytes free
+
+C:\Program Files\com0com>hub4com --baud=2400 --route=0:1,2 --route=1,2:0 COM4 CO
+M7 COM9
+COM4 Open("COM4", baud=2400, data=8, parity=no, stop=1, octs=on, odsr=off, ox=of
+f, ix=off, idsr=off, ito=0) - OK
+COM7 Open("COM7", baud=2400, data=8, parity=no, stop=1, octs=on, odsr=off, ox=of
+f, ix=off, idsr=off, ito=0) - OK
+COM9 Open("COM9", baud=2400, data=8, parity=no, stop=1, octs=on, odsr=off, ox=of
+f, ix=off, idsr=off, ito=0) - OK
+Route data COM4(0) --> COM7(1) COM9(2)
+Route data COM7(1) --> COM4(0)
+Route data COM9(2) --> COM4(0)
+Route flow control COM4(0) --> COM7(1) COM9(2)
+Route flow control COM7(1) --> COM4(0)
+Route flow control COM9(2) --> COM4(0)
+Started COM4(0)
+Started COM7(1)
+Started COM9(2)
