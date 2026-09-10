@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Esp32 Core</title>
+
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    padding: 1.5em;
+    margin: 0;
+    overflow-x: hidden;
+  }
+
+  .center-box {
+    max-width: 480px;
+    margin: auto;
+    border: 3px solid black;
+    padding: 1.5em;
+    box-sizing: border-box;
+    background-color: white;
+  }
+
+  h1 {
+    margin-top: 0;
+    margin-bottom: 0.8em;
+  }
+
+  #units label {
+    display: inline-block;
+    width: 4ch;
+    text-align: right;
+    font-family: monospace;
+  }
+
+  #fcxForm label,
+  #fcxForm input,
+  #fcxForm select {
+    font-size: 1.1em;
+  }
+
+  #units div {
+    display: flex;
+    justify-content: center;
+    gap: 0.5em;
+    flex-wrap: wrap;
+  }
+
+  button {
+    padding: 0.5em 1.1em;
+    font-size: 1.05em;
+    margin: 0.15em;
+  }
+
+  #sysRow {
+    margin-top: 1.8em;
+    font-size: 1.05em;
+  }
+
+  #sysRow span {
+    display: inline-block;
+    margin: 0 0.6em;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="center-box">
+
+<h1 id="appTitle">?</h1>
+
+<iframe name="dummy" style="display:none"></iframe>
+
+<div>
+   <span><button id="appBtn" onclick="fws(98)">?</button></span>
+</div>   
+
+<div id="sysRow">
+  <span>Test: <button id="tstBtn" onclick="fws(5)">?</button></span>
+  <span>RSSI: <button id="rsi" onclick="fws(99)">-99</button></span>
+</div>
+<div>  
+  <span id="stln">Run Time: 00:00:00</span>
+</div>
+<div> 
+  <span> <button id="exit" onclick="fnExit()">EXIT</button></span>
+</div>
+<script>
+let Socket = null;
+
+window.addEventListener("load", function () {
+  function fnExit() {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = "/";
+    }
+  }
+
+  // expose it so onclick="fnExit()" works
+  window.fnExit = fnExit;
+  function initWebSocket() {
+    const proto = (location.protocol === "https:") ? "wss://" : "ws://";
+    const url   = proto + location.hostname + "/ws";
+    Socket      = new WebSocket(url);
+
+    Socket.onopen = function () {
+      // kick status request
+      Socket.send(JSON.stringify({ cmd: 99 }));
+    };
+
+    Socket.onmessage = function (event) {
+      let obj;
+      try {
+         obj = JSON.parse(event.data);
+      } catch (e) {
+         
+         return;
+      } 
+
+      if (obj.appTitle !== undefined) {
+          document.getElementById("appTitle").innerText = obj.appTitle;
+      } 
+
+      if (obj.rssi !== undefined && obj.rssi !== null) {
+        document.getElementById("rsi").innerText = obj.rssi;
+      }
+
+      if (obj.rntm !== undefined && obj.rntm !== null) {
+        const t  = obj.rntm;
+        const hh = ("0" + Math.trunc(t / 3600)).slice(-2);
+        const mm = ("0" + Math.trunc((t % 3600) / 60)).slice(-2);
+        const ss = ("0" + (t % 60)).slice(-2);
+        document.getElementById("stln").innerText =
+          "Run Time: " + hh + ":" + mm + ":" + ss;
+      }
+
+      if (obj.appBtn !== undefined) {
+        document.getElementById("appBtn").innerText = obj.appBtn;
+      }
+
+      if (obj.tstBtn !== undefined) {
+        document.getElementById("tstBtn").innerText = obj.tstBtn;
+      }
+    };
+
+    Socket.onclose = function () {
+      // simple, throttled reconnect
+      setTimeout(initWebSocket, 2000);
+    };
+  }
+
+  function fws(id) {
+    if (Socket && Socket.readyState === 1) {
+      Socket.send(JSON.stringify({ cmd: id.toString() }));
+    }
+  }
+
+  window.fws = fws;
+
+  // single, top-level WebSocket init
+  initWebSocket();
+
+});
+</script>
+
+</body>
+</html>

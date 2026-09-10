@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OTA Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f9f9f9;
+      text-align: center;
+      padding: 40px;
+    }
+    h1 { margin-bottom: 10px; }
+    h2 { margin-top: 0; color: #555; }
+    p  { margin-top: 30px; color: #888; }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+  <script>
+  var Socket;
+
+  function init() {
+    Socket = new WebSocket("ws://" + window.location.hostname + "/ws");
+
+    Socket.onmessage = function(event) {
+       var obj = JSON.parse(event.data);
+
+       // --- RSSI ---
+       var rssi = obj.rssi || -99;
+       document.getElementById("rsi").innerText = rssi;
+       
+       var tmr = obj.timer || 0;
+       document.getElementById("timer").innerText = tmr;
+
+       // --- Run Time ---
+       var rntm = obj.rntm || 0;
+       var rnhrs = Math.trunc(rntm / 3600);
+       var rnmins = Math.trunc((rntm % 3600) / 60);
+       var rnsecs = rntm % 60;
+       document.getElementById("stln").innerText =
+         "Run Time: " +
+         ("0" + rnhrs).slice(-2) + ":" +
+         ("0" + rnmins).slice(-2) + ":" +
+         ("0" + rnsecs).slice(-2);
+    };
+   
+  };
+  
+  function fws(id) {
+    if (Socket && Socket.readyState == WebSocket.OPEN) {
+      Socket.send(JSON.stringify({cmd: id.toString()}));
+    }
+  }
+  // wire init to window.onload
+  window.onload = init;
+  </script>
+</head>
+<body>
+  <h1>ESP32 Core</h1>
+  <h2>OTA Mode</h2>
+  <p>Returning to LIVE mode in <span id="timer">300</span> seconds...</p>
+  <button onclick="window.location.href='/reboot'">CANCEL</button>
+  <div style="margin-top:2em;">
+     RSSI: <button class="bottom-button" id="rsi" onclick="fws(99)">-99</button>
+  </div>
+  <div id="stln" style="margin-top:1em;font-weight:bold;background:white;">Run Time: 00:00:00</div>
+</body>
+</html>
